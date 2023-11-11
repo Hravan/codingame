@@ -9,10 +9,22 @@ def print_err(*args):
 
 
 class Network:
-    def __init__(self):
+    def __init__(self, connections, gateways):
         self.pregateways = defaultdict(list)
         self.gateways = defaultdict(list)
         self.rigid_connections = defaultdict(set)
+
+        for connection in connections:
+            if connection[0] in gateways:
+                self.add_gateway(connection[0], connection[1])
+            elif connection[1] in gateways:
+                self.add_gateway(connection[1], connection[0])
+            else:
+                self.add_rigid_connection(connection[0], connection[1])
+
+    def add_gateway(self, gateway_node, pregateway_node):
+        self.gateways[gateway_node].append(pregateway_node)
+        self.pregateways[pregateway_node].append(gateway_node)
 
     def add_rigid_connection(self, n1: int, n2: int):
         self.rigid_connections[n1].add(n2)
@@ -60,12 +72,11 @@ class Network:
         return True
 
 
-def initialize():
+def get_connections_and_gateways():
     _, n_links, n_exits = [int(i) for i in input().split()]
     connections = set()
     for i in range(n_links):
         n1, n2 = [int(j) for j in input().split()]
-        # network.add_connection(n1, n2)
         connections.add((n1, n2))
 
     gateways = set()
@@ -73,22 +84,12 @@ def initialize():
         gateway = int(input())
         gateways.add(gateway)
 
-    network = Network()
-    for connection in connections:
-        if connection[0] in gateways:
-            network.gateways[connection[0]].append(connection[1])
-            network.pregateways[connection[1]].append(connection[0])
-        elif connection[1] in gateways:
-            network.gateways[connection[1]].append(connection[0])
-            network.pregateways[connection[0]].append(connection[1])
-        else:
-            network.add_rigid_connection(connection[0], connection[1])
-
-    return network
+    return connections, gateways
 
 
 def main():
-    network = initialize()
+    connections, gateways = get_connections_and_gateways()
+    network = Network(connections, gateways)
     while True:
         si = int(input())
         n1, n2 = network.find_weakest_connection(si)
