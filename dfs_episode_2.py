@@ -11,10 +11,11 @@ class Network:
     def __init__(self):
         self.pregateways = defaultdict(list)
         self.gateways = defaultdict(list)
+        self.rigid_connections = defaultdict(set)
 
-    def add_connection(self, n1: int, n2: int):
-        self.nodes[n1].add_link(self.nodes[n2])
-        self.nodes[n2].add_link(self.nodes[n1])
+    def add_rigid_connection(self, n1: int, n2: int):
+        self.rigid_connections[n1].add(n2)
+        self.rigid_connections[n2].add(n1)
 
     def break_connection(self, n1: int, n2: int):
         self.gateways[n1].remove(n2)
@@ -23,11 +24,6 @@ class Network:
             del self.gateways[n1]
         if not self.pregateways[n2]:
             del self.pregateways[n2]
-
-    def add_gateway(self, gateway: int):
-        for i, node in enumerate(self.nodes):
-            if gateway in node.linked_to:
-                self.gateways[gateway].add(i)
 
     def find_weakest_connection(self, agent_node: int) -> tuple[int, int]:
         # If agent is on a pregateway node, break connection
@@ -39,8 +35,12 @@ class Network:
         ):
             if len(gateways) < 2:
                 # There are no nodes with more than 2 gateway connections, return current node
-                return gateways[-1], pregateway
-            return gateways[-1], pregateway
+                break
+
+            is_unsafe = self.is_unsafe(agent_node, pregateway)
+            if is_unsafe:
+                break
+        return gateways[-1], pregateway
 
         # elif there are 2-gateway nodes
         # if A is next to a domino path leading to a 2 gateway node, break one of these 2 connections
@@ -48,25 +48,23 @@ class Network:
         # else break one of the 2-gateway node connections
         # else break any connection
 
-
-class Node:
-    def __init__(self):
-        self.linked_to = set()
-        self.connected_gateways = set()
-
-    @property
-    def is_gateway_adjacent(self):
-        return bool(self.connected_gateways)
-
-    def add_link(self, node: int):
-        self.linked_to.add(node)
-
-    def remove_link(self, node: int):
-        self.linked_to.remove(node)
-        self.connected_gateways.remove(node)
-
-    def link_gateway(self, gateway: int):
-        self.connected_gateways.add(gateway)
+    def is_unsafe(self, agent_node, pregateway, visited=None):
+        if visited is None:
+            visited = set([pregateway])
+        else:
+            visited.add(pregateway)
+        to_visit = set(self.rigid_connections[pregateway])
+        for node in to_visit:
+            if node in visited:
+                continue
+            if node == agent_node:
+                break
+            if node not in self.pregateways:
+                continue
+            return self.is_unsafe(agent_node, node, visited)
+        else:
+            return False
+        return True
 
 
 def initialize():
@@ -90,6 +88,8 @@ def initialize():
         elif connection[1] in gateways:
             network.gateways[connection[1]].append(connection[0])
             network.pregateways[connection[0]].append(connection[1])
+        else:
+            network.add_rigid_connection(connection[0], connection[1])
 
     return network
 
